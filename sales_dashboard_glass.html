@@ -1,0 +1,200 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive Sales Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e0f7fa; /* Icy blue */
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #0d47a1;
+    }
+    #upload-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+    #fileUpload {
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+    #charts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 40px;
+    }
+    .chart {
+      width: 40%;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Interactive Sales Performance Dashboard</h1>
+
+  <div id="upload-container">
+    <input type="file" id="fileUpload" accept=".json">
+  </div>
+
+  <div id="charts">
+    <div class="chart" id="salesTrend"></div>
+    <div class="chart" id="categorySales"></div>
+    <div class="chart" id="regionSales"></div>
+    <div class="chart" id="channelPerformance"></div>
+    <div class="chart" id="demographics"></div>
+  </div>
+
+  <script>
+    document.getElementById('fileUpload').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!Array.isArray(data)) {
+            alert('Invalid JSON format. Expected an array of objects.');
+            return;
+          }
+          renderDashboard(data);
+        } catch (err) {
+          alert('Error parsing JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    function renderDashboard(data) {
+      const parseDate = d => new Date(d['Date'].split('-').reverse().join('-'));
+
+      // 1. Sales Trend Over Time
+      const dateMap = {};
+      data.forEach(d => {
+        const date = parseDate(d).toISOString().slice(0, 10);
+        dateMap[date] = (dateMap[date] || 0) + d.Amount;
+      });
+      const trendDates = Object.keys(dateMap).sort();
+      const trendSales = trendDates.map(date => dateMap[date]);
+
+      Plotly.newPlot('salesTrend', [{
+        x: trendDates,
+        y: trendSales,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'blue' }
+      }], {
+        title: 'Sales Trend Over Time',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Sales Amount (INR)' }
+      });
+
+      // 2. Sales by Product Category
+      const categoryMap = {};
+      data.forEach(d => {
+        categoryMap[d.Category] = (categoryMap[d.Category] || 0) + d.Amount;
+      });
+      const categories = Object.keys(categoryMap);
+      const categorySales = categories.map(cat => categoryMap[cat]);
+
+      Plotly.newPlot('categorySales', [{
+        x: categories,
+        y: categorySales,
+        type: 'bar',
+        marker: { color: 'orange' }
+      }], {
+        title: 'Sales by Product Category',
+        xaxis: { title: 'Category' },
+        yaxis: { title: 'Sales Amount (INR)' }
+      });
+
+      // 3. Sales by Region (State)
+      const regionMap = {};
+      data.forEach(d => {
+        regionMap[d['ship-state']] = (regionMap[d['ship-state']] || 0) + d.Amount;
+      });
+      const states = Object.keys(regionMap);
+      const stateSales = states.map(s => regionMap[s]);
+
+      Plotly.newPlot('regionSales', [{
+        x: states,
+        y: stateSales,
+        type: 'bar',
+        marker: { color: 'green' }
+      }], {
+        title: 'Sales by Region (State)',
+        xaxis: { title: 'State' },
+        yaxis: { title: 'Sales Amount (INR)' }
+      });
+
+      // 4. Sales Channel Performance (Pie Chart)
+      const channelMap = {};
+      data.forEach(d => {
+        channelMap[d.Channel] = (channelMap[d.Channel] || 0) + d.Amount;
+      });
+      const channels = Object.keys(channelMap);
+      const channelSales = channels.map(ch => channelMap[ch]);
+
+      Plotly.newPlot('channelPerformance', [{
+        labels: channels,
+        values: channelSales,
+        type: 'pie',
+        textinfo: 'label+percent',
+        hole: 0
+      }], {
+        title: 'Sales Channel Performance'
+      });
+
+      // 5. Customer Demographics (Gender + Age Group)
+      const demoMap = {};
+      data.forEach(d => {
+        const ageGroup = getAgeGroup(d.Age);
+        const key = `${d.Gender}-${ageGroup}`;
+        demoMap[key] = (demoMap[key] || 0) + d.Amount;
+      });
+
+      const genderGroups = ['Men', 'Women'];
+      const ageGroups = ['<20', '20-29', '30-39', '40-49', '50+'];
+      const traces = genderGroups.map(gender => {
+        return {
+          name: gender,
+          x: ageGroups,
+          y: ageGroups.map(age => demoMap[`${gender}-${age}`] || 0),
+          type: 'bar'
+        };
+      });
+
+      Plotly.newPlot('demographics', traces, {
+        barmode: 'stack',
+        title: 'Sales by Customer Demographics',
+        xaxis: { title: 'Age Group' },
+        yaxis: { title: 'Sales Amount (INR)' }
+      });
+    }
+
+    function getAgeGroup(age) {
+      if (age < 20) return '<20';
+      if (age < 30) return '20-29';
+      if (age < 40) return '30-39';
+      if (age < 50) return '40-49';
+      return '50+';
+    }
+  </script>
+</body>
+</html>
