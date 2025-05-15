@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales Dashboard - Auto Load</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 2rem;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #ffffff);
+    }
+    .glass-container {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+    .chart {
+      width: 40%;
+      margin: auto;
+      padding: 2rem 0;
+    }
+    h2 {
+      text-align: center;
+      color: #004d66;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass-container">
+    <h2>Interactive Sales Dashboard</h2>
+    <div id="barChart" class="chart"></div>
+    <div id="pieChart" class="chart"></div>
+    <div id="lineChart" class="chart"></div>
+    <div id="categoryChart" class="chart"></div>
+    <div id="geoChart" class="chart"></div>
+  </div>
+
+  <script>
+    function generateDashboard(data) {
+      const amountByDate = {};
+      const categoryCount = {};
+      const stateSales = {};
+      const genderAmount = { Men: 0, Women: 0 };
+      const channelAmount = {};
+
+      data.forEach(item => {
+        const date = item.Date;
+        const category = item.Category;
+        const state = item["ship-state"];
+        const gender = item.Gender;
+        const amount = item.Amount;
+        const channel = item.Channel;
+
+        amountByDate[date] = (amountByDate[date] || 0) + amount;
+        categoryCount[category] = (categoryCount[category] || 0) + 1;
+        stateSales[state] = (stateSales[state] || 0) + amount;
+        genderAmount[gender] = (genderAmount[gender] || 0) + amount;
+        channelAmount[channel] = (channelAmount[channel] || 0) + amount;
+      });
+
+      Plotly.newPlot("barChart", [{
+        x: Object.keys(genderAmount),
+        y: Object.values(genderAmount),
+        type: 'bar',
+        marker: { color: ['#1f77b4', '#ff7f0e'] }
+      }], { title: "Sales by Gender" });
+
+      Plotly.newPlot("pieChart", [{
+        labels: Object.keys(categoryCount),
+        values: Object.values(categoryCount),
+        type: 'pie'
+      }], { title: "Orders by Category" });
+
+      Plotly.newPlot("lineChart", [{
+        x: Object.keys(amountByDate),
+        y: Object.values(amountByDate),
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#17becf' }
+      }], { title: "Sales Trend Over Time" });
+
+      Plotly.newPlot("categoryChart", [{
+        x: Object.keys(channelAmount),
+        y: Object.values(channelAmount),
+        type: 'bar',
+        marker: { color: '#2ca02c' }
+      }], { title: "Sales by Channel" });
+
+      Plotly.newPlot("geoChart", [{
+        type: 'choropleth',
+        locationmode: 'country names',
+        locations: Object.keys(stateSales),
+        z: Object.values(stateSales),
+        colorscale: 'Blues',
+        colorbar: { title: 'Sales Amount' }
+      }], { title: "Sales Distribution by State" });
+    }
+
+    fetch("sales_data.json")
+      .then(response => response.json())
+      .then(jsonData => {
+        generateDashboard(jsonData);
+      })
+      .catch(error => {
+        console.error("Error loading JSON:", error);
+        alert("Failed to load sales_data.json. Please check the file.");
+      });
+  </script>
+</body>
+</html>
